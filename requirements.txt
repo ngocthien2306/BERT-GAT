@@ -1,0 +1,8 @@
+scikit-learn
+torch_geometric
+tqdm
+networkx
+torch_scatter
+nltk
+jieba
+gensim
