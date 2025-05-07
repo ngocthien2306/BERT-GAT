@@ -164,9 +164,9 @@ If you use this code in your research, please cite our work:
 
 ```
 @article{author2025graph,
-  title={Graph Neural Networks with Attention Mechanisms for Rumor Detection},
-  author={Author, A.},
-  journal={Journal of Machine Learning},
+  title={BERT-GAT: Enhancing Rumor Detection via Pre-trained Language Models and Graph Attention Networks for Social Media Propagation Trees},
+  author={Nguyen Ngoc Thien, Bui Duc Nhan, Liu Yu-Tso},
+  journal={},
   year={2025}
 }
 ```
