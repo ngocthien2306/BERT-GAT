@@ -1,13 +1,8 @@
-# -*- coding: utf-8 -*-
-# @Time    :
-# @Author  :
-# @Email   :
-# @File    : sort.py
-# @Software: PyCharm
-# @Note    :
 import os
 import json
 import random
+
+from tqdm import tqdm
 from Main.utils import write_post, dataset_makedirs
 
 
@@ -26,7 +21,7 @@ def sort_dataset(label_source_path, label_dataset_path, k_shot=10000, split='622
         label_file_paths.append(os.path.join(label_source_path, filename))
 
     all_post = []
-    for filepath in label_file_paths:
+    for filepath in tqdm(label_file_paths, "Reading dataset ..."):
         post = json.load(open(filepath, 'r', encoding='utf-8'))
         all_post.append((post['source']['tweet id'], post))
 

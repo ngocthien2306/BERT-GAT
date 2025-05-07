@@ -12,6 +12,7 @@ import os
 import json
 import torch
 from torch_geometric.data import Data, Batch
+from tqdm import tqdm
 
 
 def write_json(dict, path):
@@ -93,7 +94,8 @@ def betweenness_centrality(data):
 
 def calculate_centrality(source_path):
     raw_file_names = os.listdir(source_path)
-    for filename in raw_file_names:
+    print("Total length: ", len(raw_file_names))
+    for filename in tqdm(raw_file_names, "Processing data ..."):
         filepath = os.path.join(source_path, filename)
         post = json.load(open(filepath, 'r', encoding='utf-8'))
 
@@ -132,3 +134,8 @@ def calculate_centrality(source_path):
         post['centrality']['Betweenness'] = bc
 
         write_json(post, filepath)
+
+
+if __name__ == "__main__":
+    src_path = "data/Weibo/source"
+    calculate_centrality(source_path=src_path)

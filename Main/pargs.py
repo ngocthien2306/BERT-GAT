@@ -6,7 +6,7 @@ def pargs():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--dataset', type=str, default='Weibo')
-    parser.add_argument('--unsup_dataset', type=str, default='UWeiboV1')
+    parser.add_argument('--unsup_dataset', type=str, default='Weibo')
     parser.add_argument('--tokenize_mode', type=str, default='naive')
 
     parser.add_argument('--vector_size', type=int, help='word embedding size', default=200)

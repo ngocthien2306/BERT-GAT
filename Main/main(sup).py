@@ -145,12 +145,12 @@ if __name__ == '__main__':
     epochs = args.epochs
     use_unsup_loss = args.use_unsup_loss
 
-    label_source_path = osp.join(dirname, '..', 'Data', dataset, 'source')
-    label_dataset_path = osp.join(dirname, '..', 'Data', dataset, 'dataset')
+    label_source_path = osp.join(dirname, '..', 'data', dataset, 'source')
+    label_dataset_path = osp.join(dirname, '..', 'data', dataset, 'dataset')
     train_path = osp.join(label_dataset_path, 'train')
     val_path = osp.join(label_dataset_path, 'val')
     test_path = osp.join(label_dataset_path, 'test')
-    unlabel_dataset_path = osp.join(dirname, '..', 'Data', unsup_dataset, 'dataset')
+    unlabel_dataset_path = osp.join(dirname, '..', 'data', unsup_dataset, 'dataset', 'test')
     model_path = osp.join(dirname, '..', 'Model',
                           f'w2v_{dataset}_{tokenize_mode}_{unsup_train_size}_{vector_size}.model')
 

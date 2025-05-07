@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-# @Time    :
-# @Author  :
-# @Email   :
-# @File    : utils.py
-# @Software: PyCharm
-# @Note    :
 import json
 import os
 import shutil
