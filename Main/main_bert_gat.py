@@ -1,10 +1,5 @@
 # -*- coding: utf-8 -*-
-# @Time    :
-# @Author  :
-# @Email   :
-# @File    : main(sup).py.py
-# @Software: PyCharm
-# @Note    :
+# Main script for training ResGAT with BERT embeddings for Chinese text
 import sys
 import os
 import os.path as osp
@@ -17,22 +12,19 @@ sys.path.append(osp.join(dirname, '..'))
 
 import numpy as np
 import time
+import torch
 import torch.nn.functional as F
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch_geometric.loader import DataLoader
+
 from Main.pargs import pargs
-from Main.dataset import TreeDataset
-from Main.word2vec import Embedding, collect_sentences, train_word2vec
-from Main.sort import sort_dataset
-from Main.model import ResGCN_graphcl, BiGCN_graphcl
+from Main.bert_dataset import BertTreeDataset
 from Main.gat_model import ResGAT_graphcl, BiGAT_graphcl
 from Main.utils import create_log_dict_sup, write_log, write_json
 from Main.augmentation import augment
+from Main.sort import sort_dataset
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-
-
-
 
 def sup_train(train_loader, aug1, aug2, model, optimizer, device, lamda, use_unsup_loss):
     model.train()
@@ -65,7 +57,6 @@ def sup_train(train_loader, aug1, aug2, model, optimizer, device, lamda, use_uns
         total_loss += loss.item() * data.num_graphs
 
     return total_loss / len(train_loader.dataset)
-
 
 def test(model, dataloader, num_classes, device):
     model.eval()
@@ -102,7 +93,6 @@ def test(model, dataloader, num_classes, device):
     return error / len(dataloader.dataset), acc, precs, recs, f1s, \
            [micro_p, micro_r, micro_f1], [macro_p, macro_r, macro_f1]
 
-
 def test_and_log(model, val_loader, test_loader, num_classes, device, epoch, lr, loss, train_acc, log_record):
     val_error, val_acc, val_precs, val_recs, val_f1s, val_micro_metric, val_macro_metric = \
         test(model, val_loader, num_classes, device)
@@ -122,127 +112,182 @@ def test_and_log(model, val_loader, test_loader, num_classes, device, epoch, lr,
     log_record['test macro metric'].append(test_macro_metric)
     return val_error, log_info, log_record
 
-
 if __name__ == '__main__':
+    # Parse arguments
     args = pargs()
 
-    unsup_train_size = args.unsup_train_size
+    # Parameters
     dataset = args.dataset
     unsup_dataset = args.unsup_dataset
-    vector_size = args.vector_size
     device = args.gpu if args.cuda else 'cpu'
     runs = args.runs
     k = args.k
 
-    word_embedding = 'tfidf' if 'tfidf' in dataset else 'word2vec'
-    lang = 'ch' if 'Weibo' in dataset else 'en'
-    tokenize_mode = args.tokenize_mode
+    # Check if this is a Chinese dataset
+    is_chinese = 'Weibo' in dataset
+    if not is_chinese:
+        print("Warning: BERT-Chinese is optimized for Chinese datasets. Consider using a different model for non-Chinese datasets.")
 
+    # Paths
+    label_source_path = osp.join(dirname, '..', 'data', dataset, 'source')
+    label_dataset_path = osp.join(dirname, '..', 'data', dataset, 'dataset')
+    train_path = osp.join(label_dataset_path, 'train')
+    val_path = osp.join(label_dataset_path, 'val')
+    test_path = osp.join(label_dataset_path, 'test')
+    
+    # BERT cache directory
+    bert_cache_dir = osp.join(dirname, '..', 'cache', 'bert_embeddings')
+    os.makedirs(bert_cache_dir, exist_ok=True)
+
+    # Logging
+    log_name = time.strftime("%Y-%m-%d %H-%M-%S", time.localtime(time.time()))
+    log_path = osp.join(dirname, '..', 'Log', f'bert_gat_{log_name}.log')
+    log_json_path = osp.join(dirname, '..', 'Log', f'bert_gat_{log_name}.json')
+
+    log = open(log_path, 'w')
+    log_dict = create_log_dict_sup(args)
+    log_dict['model'] = 'ResGAT with BERT-Chinese'
+
+    # Training parameters
     split = args.split
     batch_size = args.batch_size
     undirected = args.undirected
     centrality = args.centrality
-
     weight_decay = args.weight_decay
     lamda = args.lamda
-    epochs = args.epochs 
+    epochs = args.epochs
     use_unsup_loss = args.use_unsup_loss
 
-    label_source_path = osp.join(dirname, '..', 'new_data', dataset, 'source')
-    label_dataset_path = osp.join(dirname, '..', 'new_data', dataset, 'dataset')
-    train_path = osp.join(label_dataset_path, 'train')
-    val_path = osp.join(label_dataset_path, 'val')
-    test_path = osp.join(label_dataset_path, 'test')
-    unlabel_dataset_path = osp.join(dirname, '..', 'new_data', unsup_dataset, 'dataset', 'test')
-    model_path = osp.join(dirname, '..', 'checkpoints',
-                          f'w2v_{dataset}_{tokenize_mode}_{unsup_train_size}_{vector_size}.model')
+    # Print configuration
+    print(f"Starting training with BERT + ResGAT for {dataset}")
+    print(f"Device: {device}")
+    print(f"BERT model: bert-base-chinese")
+    print(f"Graph model: ResGAT")
+    print(f"Centrality: {centrality}")
+    print(f"Undirected: {undirected}")
+    print(f"Batch size: {batch_size}")
+    print(f"Runs: {runs}")
+    print(f"Epochs: {epochs}")
+    print(f"Learning rate: {args.lr}")
+    print(f"Weight decay: {weight_decay}")
+    print(f"Lambda: {lamda}")
+    print(f"Use unsupervised loss: {use_unsup_loss}")
 
-    log_name = time.strftime("%Y-%m-%d %H-%M-%S", time.localtime(time.time()))
-    log_path = osp.join(dirname, '..', 'Log', f'{log_name}.log')
-    log_json_path = osp.join(dirname, '..', 'Log', f'{log_name}.json')
-
-    log = open(log_path, 'w')
-    log_dict = create_log_dict_sup(args)
-
-    if not osp.exists(model_path) and word_embedding == 'word2vec':
-        print("Starting train w2v")
-        sentences = collect_sentences(label_source_path, unlabel_dataset_path, unsup_train_size, lang, tokenize_mode)
-        w2v_model = train_word2vec(sentences, vector_size)
-        w2v_model.save(model_path)
-
+    # Main training loop
     for run in range(runs):
-        print("Started training")
+        print(f"Starting run {run+1}/{runs}")
         write_log(log, f'run:{run}')
         log_record = {'run': run, 'val accs': [], 'test accs': [], 'test precs': [], 'test recs': [], 'test f1s': [],
                       'test micro metric': [], 'test macro metric': []}
 
-        word2vec = Embedding(model_path, lang, tokenize_mode) if word_embedding == 'word2vec' else None
-
+        # Sort dataset for this run
         sort_dataset(label_source_path, label_dataset_path, k_shot=k, split=split)
 
-        train_dataset = TreeDataset(train_path, word_embedding, word2vec, centrality, undirected)
-        val_dataset = TreeDataset(val_path, word_embedding, word2vec, centrality, undirected)
-        test_dataset = TreeDataset(test_path, word_embedding, word2vec, centrality, undirected)
+        # Load datasets with BERT embeddings
+        print("Loading datasets with BERT embeddings...")
+        train_dataset = BertTreeDataset(
+            train_path, 
+            bert_model_name='bert-base-chinese', 
+            centrality_metric=centrality, 
+            undirected=undirected,
+            cache_dir=bert_cache_dir,
+            device=device
+        )
+        
+        val_dataset = BertTreeDataset(
+            val_path, 
+            bert_model_name='bert-base-chinese', 
+            centrality_metric=centrality, 
+            undirected=undirected,
+            cache_dir=bert_cache_dir,
+            device=device
+        )
+        
+        test_dataset = BertTreeDataset(
+            test_path, 
+            bert_model_name='bert-base-chinese', 
+            centrality_metric=centrality, 
+            undirected=undirected,
+            cache_dir=bert_cache_dir,
+            device=device
+        )
 
+        # Create data loaders
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         test_loader = DataLoader(test_dataset, batch_size=batch_size)
         val_loader = DataLoader(val_dataset, batch_size=batch_size)
 
-        num_classes = train_dataset.num_classes
-        # if args.model == 'ResGCN':
-        #     model = ResGCN_graphcl(dataset=train_dataset, num_classes=num_classes, hidden=args.hidden,
-        #                            num_feat_layers=args.n_layers_feat, num_conv_layers=args.n_layers_conv,
-        #                            num_fc_layers=args.n_layers_fc, gfn=False, collapse=False,
-        #                            residual=args.skip_connection,
-        #                            res_branch=args.res_branch, global_pool=args.global_pool, dropout=args.dropout,
-        #                            edge_norm=args.edge_norm).to(device)
-        # elif args.model == 'BiGCN':
-        #     model = BiGCN_graphcl(train_dataset.num_features, args.hidden, args.hidden, num_classes).to(device)
-
-
-        if args.model == 'ResGCN':
-            model = ResGCN_graphcl(dataset=train_dataset, num_classes=num_classes, hidden=args.hidden,
-                                num_feat_layers=args.n_layers_feat, num_conv_layers=args.n_layers_conv,
-                                num_fc_layers=args.n_layers_fc, gfn=False, collapse=False,
-                                residual=args.skip_connection, res_branch=args.res_branch,
-                                global_pool=args.global_pool, dropout=args.dropout,
-                                edge_norm=args.edge_norm).to(device)
-        elif args.model == 'BiGCN':
-            model = BiGCN_graphcl(train_dataset.num_features, args.hidden, args.hidden, num_classes).to(device)
+        # Determine number of classes from dataset
+        num_classes = 0
+        for data in train_dataset:
+            if hasattr(data, 'y') and data.y is not None:
+                num_classes = max(num_classes, data.y.item() + 1)
         
-        elif args.model == 'ResGAT':
-            model = ResGAT_graphcl(dataset=train_dataset, num_classes=num_classes, hidden=args.hidden,
-                                num_feat_layers=args.n_layers_feat, num_conv_layers=args.n_layers_conv,
-                                num_fc_layers=args.n_layers_fc, gfn=False, collapse=False,
-                                residual=args.skip_connection, res_branch=args.res_branch,
-                                global_pool=args.global_pool, dropout=args.dropout,
-                                edge_norm=args.edge_norm, heads=args.heads).to(device)
-        elif args.model == 'BiGAT':
-            model = BiGAT_graphcl(train_dataset.num_features, args.hidden, args.hidden, 
-                                num_classes, heads=args.heads).to(device)
+        # Default to binary classification if no labels found
+        if num_classes == 0:
+            num_classes = 2
+            print("Warning: No labels found in dataset. Defaulting to binary classification.")
         
+        print(f"Number of classes: {num_classes}")
+        print(f"Feature dimension: {train_dataset.num_features}")
+
+        # Initialize ResGAT model
+        model = ResGAT_graphcl(
+            dataset=train_dataset, 
+            num_classes=num_classes, 
+            hidden=args.hidden,
+            num_feat_layers=args.n_layers_feat, 
+            num_conv_layers=args.n_layers_conv,
+            num_fc_layers=args.n_layers_fc, 
+            gfn=False, 
+            collapse=False,
+            residual=args.skip_connection, 
+            res_branch=args.res_branch,
+            global_pool=args.global_pool, 
+            dropout=args.dropout,
+            edge_norm=args.edge_norm, 
+            heads=args.heads
+        ).to(device)
+
+        # Initialize optimizer and scheduler
         optimizer = Adam(model.parameters(), lr=args.lr, weight_decay=weight_decay)
         scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.7, patience=5, min_lr=0.000001)
 
-        val_error, log_info, log_record = test_and_log(model, val_loader, test_loader, num_classes,
-                                                       device, 0, args.lr, 0, 0, log_record)
+        # Initial evaluation
+        val_error, log_info, log_record = test_and_log(
+            model, val_loader, test_loader, num_classes, device, 0, args.lr, 0, 0, log_record
+        )
         write_log(log, log_info)
         print(log_info)
 
+        # Training loop
         for epoch in range(1, epochs + 1):
+            # Get current learning rate
             lr = scheduler.optimizer.param_groups[0]['lr']
-            _ = sup_train(train_loader, args.aug1, args.aug2, model, optimizer, device, lamda, use_unsup_loss)
-
+            
+            # Train one epoch
+            loss = sup_train(train_loader, args.aug1, args.aug2, model, optimizer, device, lamda, use_unsup_loss)
+            
+            # Evaluate
             train_error, train_acc, _, _, _, _, _ = test(model, train_loader, num_classes, device)
-            val_error, log_info, log_record = test_and_log(model, val_loader, test_loader, num_classes, device, epoch,
-                                                           lr, train_error, train_acc, log_record)
+            val_error, log_info, log_record = test_and_log(
+                model, val_loader, test_loader, num_classes, device, epoch, lr, train_error, train_acc, log_record
+            )
             write_log(log, log_info)
-
+            print(log_info)
+            
+            # Update learning rate
             if split == '622':
                 scheduler.step(val_error)
 
+        # Calculate final metrics
         log_record['mean acc'] = round(np.mean(log_record['test accs'][-10:]), 3)
         write_log(log, '')
 
+        # Update log dictionary
         log_dict['record'].append(log_record)
         write_json(log_dict, log_json_path)
+        
+        print(f"Run {run+1} completed. Mean accuracy: {log_record['mean acc']}")
+    
+    print("Training completed.")
