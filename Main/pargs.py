@@ -16,15 +16,16 @@ def pargs():
 
     parser.add_argument('--cuda', type=str2bool, default=True)
     parser.add_argument('--gpu', type=int, default=0)
+    parser.add_argument('--heads', type=int, default=4, help='Number of attention heads for GAT models')
 
     # 622 or 802
-    parser.add_argument('--split', type=str, default='802')
+    parser.add_argument('--split', type=str, default='622')
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--unsup_bs_ratio', type=int, default=1)
     parser.add_argument('--undirected', type=str2bool, default=True)
 
     # ResGCN or BiGCN
-    parser.add_argument('--model', type=str, default='ResGCN')
+    parser.add_argument('--model', type=str, default='BiGAT')
     parser.add_argument('--n_layers_feat', type=int, default=1)
     parser.add_argument('--n_layers_conv', type=int, default=3)
     parser.add_argument('--n_layers_fc', type=int, default=2)

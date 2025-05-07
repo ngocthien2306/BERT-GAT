@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-# @Time    :
-# @Author  :
-# @Email   :
-# @File    : model.py
-# @Software: PyCharm
-# @Note    :
 from functools import partial
 import torch
 import torch.nn as nn
@@ -649,3 +642,5 @@ class BiGCN_graphcl(torch.nn.Module):
         if mean:
             loss = loss.mean()
         return loss
+
+
