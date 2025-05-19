@@ -9,7 +9,7 @@ def pargs():
     parser.add_argument('--unsup_dataset', type=str, default='Weibo')
     parser.add_argument('--tokenize_mode', type=str, default='naive')
 
-    parser.add_argument('--vector_size', type=int, help='word embedding size', default=200)
+    parser.add_argument('--vector_size', type=int, help='word embedding size', default=384)
     parser.add_argument('--unsup_train_size', type=int, help='word embedding unlabel data train size', default=20000)
     parser.add_argument('--runs', type=int, default=10)
     parser.add_argument('--ft_runs', type=int, default=10)

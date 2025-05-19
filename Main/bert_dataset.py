@@ -8,11 +8,12 @@ from torch_geometric.utils import to_undirected
 import numpy as np
 from bert_embedding import BertEmbedding
 import datetime
+from tqdm import tqdm
 
 class BertTreeDataset(InMemoryDataset):
     def __init__(self, root, bert_model_name='bert-base-chinese', centrality_metric='PageRank', 
                  undirected=True, cache_dir=None, device=None, transform=None, pre_transform=None,
-                 pre_filter=None):
+                 pre_filter=None, dataset="Weibo"):
         """
         TreeDataset with BERT embeddings for Chinese text
         
@@ -30,7 +31,7 @@ class BertTreeDataset(InMemoryDataset):
         self.undirected = undirected
         self.cache_dir = cache_dir
         self.device = device
-        
+        self.dataset = dataset
         # Initialize BERT embedder
         self.bert = BertEmbedding(model_name=bert_model_name, device=device)
         
@@ -89,7 +90,7 @@ class BertTreeDataset(InMemoryDataset):
             os.makedirs(self.cache_dir, exist_ok=True)
             cache_file = os.path.join(
                 self.cache_dir, 
-                f'bert_embeddings_{self.bert_model_name.replace("/", "_")}.pt'
+                f'bert_embeddings_{self.dataset}_{self.bert_model_name.replace("/", "_")}.pt'
             )
             if os.path.exists(cache_file):
                 cached_data = torch.load(cache_file)
@@ -97,7 +98,7 @@ class BertTreeDataset(InMemoryDataset):
                 print(f"Loaded {len(cached_embeddings)} cached embeddings")
 
         # Process each file
-        for filename in raw_file_names:
+        for filename in tqdm(raw_file_names, "Embedding processing ..."):
             centrality = None
             y = []
             row = []
@@ -116,7 +117,7 @@ class BertTreeDataset(InMemoryDataset):
             # Check cache first
             if cached_embeddings and filename in cached_embeddings:
                 x = cached_embeddings[filename]
-                print(f"Using cached embeddings for {filename}")
+                # print(f"Using cached embeddings for {filename}")
             else:
                 # Get BERT embeddings for all texts in one batch
                 x = self.bert.batch_encode(texts)
@@ -127,7 +128,7 @@ class BertTreeDataset(InMemoryDataset):
                         cached_embeddings = {}
                     cached_embeddings[filename] = x
                     torch.save({'embeddings': cached_embeddings}, cache_file)
-                    print(f"Cached embeddings for {filename}")
+                    # print(f"Cached embeddings for {filename}")
             
             # Get label
             if 'label' in post['source'].keys():

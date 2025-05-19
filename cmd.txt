@@ -1,0 +1,1 @@
+python Main/main_bert_gat.py --dataset DRWeiboV3 --cuda True --gpu 7 --heads 8

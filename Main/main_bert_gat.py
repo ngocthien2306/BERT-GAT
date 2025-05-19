@@ -191,7 +191,8 @@ if __name__ == '__main__':
             centrality_metric=centrality, 
             undirected=undirected,
             cache_dir=bert_cache_dir,
-            device=device
+            device=device,
+            dataset=dataset
         )
         
         val_dataset = BertTreeDataset(
@@ -200,7 +201,8 @@ if __name__ == '__main__':
             centrality_metric=centrality, 
             undirected=undirected,
             cache_dir=bert_cache_dir,
-            device=device
+            device=device,
+            dataset=dataset
         )
         
         test_dataset = BertTreeDataset(
@@ -209,7 +211,9 @@ if __name__ == '__main__':
             centrality_metric=centrality, 
             undirected=undirected,
             cache_dir=bert_cache_dir,
-            device=device
+            device=device,
+            dataset=dataset
+
         )
 
         # Create data loaders
