@@ -27,9 +27,9 @@ def pargs():
     # ResGCN or BiGCN
     parser.add_argument('--model', type=str, default='ResGAT')
     parser.add_argument('--n_layers_feat', type=int, default=1)
-    parser.add_argument('--n_layers_conv', type=int, default=3)
+    parser.add_argument('--n_layers_conv', type=int, default=5)
     parser.add_argument('--n_layers_fc', type=int, default=2)
-    parser.add_argument('--hidden', type=int, default=128)
+    parser.add_argument('--hidden', type=int, default=256)
     parser.add_argument('--global_pool', type=str, default="sum")
     parser.add_argument('--skip_connection', type=str2bool, default=True)
     parser.add_argument('--res_branch', type=str, default="BNConvReLU")
