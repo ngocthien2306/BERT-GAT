@@ -33,7 +33,6 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 
 
 
-
 def sup_train(train_loader, aug1, aug2, model, optimizer, device, lamda, use_unsup_loss):
     model.train()
     total_loss = 0

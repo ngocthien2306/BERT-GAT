@@ -107,8 +107,11 @@ class BertTreeDataset(InMemoryDataset):
             no_root_col = []
 
             filepath = os.path.join(self.raw_dir, filename)
-            post = json.load(open(filepath, 'r', encoding='utf-8'))
-            
+            try:
+                post = json.load(open(filepath, 'r', encoding='utf-8'))
+            except Exception as e:
+                print(str(e))
+                continue
             # Extract all texts for batch processing
             texts = [post['source']['content']]
             for comment in post['comment']:
